@@ -6,7 +6,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 SERIAL_PORT = '/dev/ttyUSB0'
-BAUD_RATE = 9600
+BAUD_RATE = 19200
 WINDOW_SIZE = 10
 N_POINTS = 5
 POINT_DURATION_SECONDS = 5
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     measurements = []
 
     for point_idx in range(N_POINTS):
-        print(f"\nAcquiring point {point_idx}/{N_POINTS} for {POINT_DURATION_SECONDS} seconds...")
+        print(f"\nAcquiring point {point_idx}/{N_POINTS - 1} for {POINT_DURATION_SECONDS} seconds...")
         point_values = acquire_point(ser)
         measurements.append(point_values)
 
