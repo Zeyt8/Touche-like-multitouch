@@ -40,8 +40,8 @@ def detect_multitouch(profile, threshold=0.8):
     touched = np.where(similarities >= threshold)[0]
     return touched.tolist()
 
-idx = np.random.choice(len(X_raw), size=2, replace=False)
+idx = np.random.choice(len(X_raw), size=1, replace=False)
 print(f"Testing with touch points: {idx}")
-incoming_vector = X_raw[idx[0]] + X_raw[idx[1]]
-result = detect_multitouch(incoming_vector, threshold=0.5)
+incoming_vector = X_raw[idx[0]]
+result = detect_multitouch(incoming_vector, threshold=0.1)
 print(f"Detected touch points: {result}")
