@@ -1,9 +1,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+from itertools import combinations, chain
 
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
+
+
+def enable_legend_toggles(ax, lines):
+    legend = ax.legend()
+    legend_lookup = {}
+
+    for legend_item, line in zip(legend.get_lines(), lines):
+        legend_item.set_picker(True)
+        legend_item.set_pickradius(5)
+        legend_lookup[legend_item] = line
+
+    def on_pick(event):
+        legend_item = event.artist
+        if legend_item not in legend_lookup:
+            return
+
+        line = legend_lookup[legend_item]
+        visible = not line.get_visible()
+        line.set_visible(visible)
+        legend_item.set_alpha(1.0 if visible else 0.2)
+        ax.figure.canvas.draw_idle()
+
+    ax.figure.canvas.mpl_connect('pick_event', on_pick)
 
 def get_circuit(touch_nodes):
     circuit = Circuit(f'RL + LPF + Envelope @ {f} Hz')
@@ -25,14 +49,14 @@ def get_circuit(touch_nodes):
 
     circuit.VCVS('amp', 'vamp', circuit.gnd, 'vhpf', circuit.gnd, 2)
 
-    circuit.R(1, 'vamp', 'n1', 220@u_kOhm)
+    circuit.R(1, 'vamp', 'n1', 440@u_kOhm)
     circuit.L("inductor", 'n1', 'd-pad1', 100@u_mH)
-    circuit.R("d-padR1", 'd-pad1', 'd-pad2', 150@u_kOhm)
+    circuit.R("d-padR1", 'd-pad1', 'd-pad2', 250@u_kOhm)
     circuit.R("d-padR2", 'd-pad2', 'd-pad3', 150@u_kOhm)
-    circuit.R("d-padR3", 'd-pad3', 'd-pad4', 150@u_kOhm)
+    circuit.R("d-padR3", 'd-pad3', 'd-pad4', 50@u_kOhm)
     circuit.R("short", 'd-pad4', circuit.gnd, 1@u_Ohm)
     for touch_node in touch_nodes:
-        circuit.C("d-padC", f'd-pad{touch_node}', circuit.gnd, 100@u_pF)
+        circuit.C(f"d-padC{touch_node}", f'd-pad{touch_node}', circuit.gnd, 100@u_pF)
 
     circuit.VCVS('buffer', 'vbuf', circuit.gnd, 'n1', circuit.gnd, 1)
 
@@ -65,20 +89,22 @@ def plot_all(analysis, f, n):
 
     plt.figure()
 
-    plt.plot(t, vin, label='Vin')
-    plt.plot(t, vlpf, label='LPF')
-    plt.plot(t, vhpf, label='HPF')
-    plt.plot(t, vamp, label='Amplifier')
-    plt.plot(t, n1, label='N1')
-    plt.plot(t, vbuf, label='Buffer')
-    plt.plot(t, vlpf2, label='LPF2')
-    plt.plot(t, venv, label='Envelope')
+    lines = [
+        plt.plot(t, vin, label='Vin')[0],
+        plt.plot(t, vlpf, label='LPF')[0],
+        plt.plot(t, vhpf, label='HPF')[0],
+        plt.plot(t, vamp, label='Amplifier')[0],
+        plt.plot(t, n1, label='N1')[0],
+        plt.plot(t, vbuf, label='Buffer')[0],
+        plt.plot(t, vlpf2, label='LPF2')[0],
+        plt.plot(t, venv, label='Envelope')[0],
+    ]
 
     plt.title(f'Full Signal Chain @ {f:.1f} kHz, Touching Node {n}')
     plt.xlabel('Time [s]')
     plt.ylabel('Voltage [V]')
     plt.grid(True)
-    plt.legend()
+    enable_legend_toggles(plt.gca(), lines)
 
     plt.show()
 
@@ -86,22 +112,27 @@ def draw_progress(node_index, progress, total, frequency):
     filled = int(bar_width * progress / total)
     bar = '█' * filled + '-' * (bar_width - filled)
     sys.stdout.write(
-        f'\rNode {node_index}/{nodes} [{bar}] {progress:4d}/{total} '
+        f'\rCase {node_index}/{len(test_cases)} [{bar}] {progress:4d}/{total} '
         f'({frequency:7.1f} kHz)'
     )
     sys.stdout.flush()
 
+def powerset(iterable):
+    items = list(iterable)
+    return chain.from_iterable(combinations(items, r) for r in range(len(items)+1))
+
 if __name__ == '__main__':
     nodes = 4
-    freq_step = 17.5
+    test_cases = list(powerset(range(1, nodes + 1)))
+    freq_step = 170.5
     frequencies = np.arange(1, 3500 + freq_step, freq_step)
-    data = np.zeros((nodes+1, len(frequencies)))
+    data = np.zeros((len(test_cases), len(frequencies)))
 
     bar_width = 30
 
-    for n in range(0, nodes + 1):
-        for i, f in enumerate(frequencies):
-            circuit = get_circuit([n] if n > 0 else [])
+    for i, n in enumerate(test_cases):
+        for j, f in enumerate(frequencies):
+            circuit = get_circuit(n)
 
             simulator = circuit.simulator(temperature=25, nominal_temperature=25)
 
@@ -112,9 +143,9 @@ if __name__ == '__main__':
 
             #plot_all(analysis, f, n)
             venv = np.array(analysis['venv'])
-            data[n, i] = np.mean(venv[-10:])
+            data[i, j] = np.mean(venv[-10:])
 
-            draw_progress(n, i + 1, len(frequencies), f)
+            draw_progress(i, j + 1, len(frequencies), f)
 
         sys.stdout.write('\n')
         sys.stdout.flush()
@@ -122,11 +153,13 @@ if __name__ == '__main__':
     np.savetxt('data.txt', data, fmt='%.6f')
 
     plt.figure()
-    for n in range(1, nodes + 1):
-        plt.plot(frequencies, data[n-1], label=f'Touching Node {n}')
+    lines = []
+    for n in range(len(test_cases)):
+        line, = plt.plot(frequencies, data[n], label=f'Touching Node {test_cases[n]}')
+        lines.append(line)
     plt.title('Output Voltage vs Frequency')
     plt.xlabel('Frequency [kHz]')
     plt.ylabel('Output Voltage [V]')
     plt.grid(True)
-    plt.legend()
+    enable_legend_toggles(plt.gca(), lines)
     plt.show()
