@@ -47,14 +47,15 @@ def get_circuit(touch_nodes):
     circuit.C('hpf_c', 'vlpf', 'vhpf', 4.7@u_nF)
     circuit.R('hpf_r', 'vhpf', circuit.gnd, 34.2@u_kOhm)
 
-    circuit.VCVS('amp', 'vamp', circuit.gnd, 'vhpf', circuit.gnd, 2)
+    circuit.VCVS('amp', 'vamp', circuit.gnd, 'vhpf', circuit.gnd, 1.5)
 
-    circuit.R(1, 'vamp', 'n1', 440@u_kOhm)
-    circuit.L("inductor", 'n1', 'd-pad1', 100@u_mH)
-    circuit.R("d-padR1", 'd-pad1', 'd-pad2', 250@u_kOhm)
-    circuit.R("d-padR2", 'd-pad2', 'd-pad3', 150@u_kOhm)
-    circuit.R("d-padR3", 'd-pad3', 'd-pad4', 50@u_kOhm)
-    circuit.R("short", 'd-pad4', circuit.gnd, 1@u_Ohm)
+    circuit.R(1, 'vamp', 'n1', 1000@u_kOhm)
+    circuit.L("inductor", 'n1', 'd-pad0', 100@u_mH)
+    circuit.R("d-padR0", 'd-pad0', 'd-pad1', 800@u_kOhm)
+    circuit.R("d-padR1", 'd-pad1', 'd-pad2', 300@u_kOhm)
+    circuit.R("d-padR2", 'd-pad2', 'd-pad3', 200@u_kOhm)
+    circuit.R("d-padR3", 'd-pad3', 'd-pad4', 100@u_kOhm)
+    circuit.R("short", 'd-pad4', circuit.gnd, 100@u_MOhm)
     for touch_node in touch_nodes:
         circuit.C(f"d-padC{touch_node}", f'd-pad{touch_node}', circuit.gnd, 100@u_pF)
 
@@ -124,8 +125,9 @@ def powerset(iterable):
 if __name__ == '__main__':
     nodes = 4
     test_cases = list(powerset(range(1, nodes + 1)))
-    freq_step = 170.5
-    frequencies = np.arange(1, 3500 + freq_step, freq_step)
+    #test_cases = [(), (1,), (2,), (3,), (4,)]
+    freq_step = 17.5 * 10
+    frequencies = np.arange(1, 3500, freq_step)
     data = np.zeros((len(test_cases), len(frequencies)))
 
     bar_width = 30
@@ -138,7 +140,7 @@ if __name__ == '__main__':
 
             analysis = simulator.transient(
                 step_time=10@u_us,
-                end_time=5@u_ms
+                end_time=10@u_ms
             )
 
             #plot_all(analysis, f, n)
@@ -160,6 +162,8 @@ if __name__ == '__main__':
     plt.title('Output Voltage vs Frequency')
     plt.xlabel('Frequency [kHz]')
     plt.ylabel('Output Voltage [V]')
-    plt.grid(True)
+    plt.minorticks_on()
+    plt.grid(which='major', linestyle='-', alpha=0.5)
+    plt.grid(which='minor', linestyle=':', alpha=0.3)
     enable_legend_toggles(plt.gca(), lines)
     plt.show()
