@@ -3,14 +3,8 @@ from sklearn.svm import SVC
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
 
-X_raw = np.loadtxt('data.txt', delimiter=' ')
-y = np.array([
-    [0,0,0,0],  # no touch
-    [1,0,0,0],  # node 0
-    [0,1,0,0],  # node 1
-    [0,0,1,0],  # node 2
-    [0,0,0,1],  # node 3
-])
+X_raw = np.loadtxt('data.txt', delimiter=' ')[:5]
+y = np.array([0, 1, 2, 3, 4])
 
 def extract_features(profile):
     profile = np.array(profile)
@@ -32,47 +26,41 @@ def extract_features(profile):
 
 X = np.array([extract_features(row) for row in X_raw])
 
-base_svm = SVC(
-    kernel='poly',
-    C=2.0,
-    coef0=1.0,
-    gamma='scale',
-)
-
 clf = Pipeline([
-    ("classifier", MultiOutputClassifier(base_svm))
+    ("classifier", SVC(
+        kernel='poly',
+        C=2.0,
+        coef0=1.0,
+        gamma='scale',
+        decision_function_shape='ovr',  # one score per class
+    ))
 ])
 
 clf.fit(X, y)
 
-for i, estimator in enumerate(clf.named_steps["classifier"].estimators_):
-    print(f"\nNODE {i}")
-    print("classes:", estimator.classes_)
-    print("support vectors:", estimator.support_vectors_.shape)
-    print("dual coef:", estimator.dual_coef_)
-    print("intercept:", estimator.intercept_)
+svm = clf.named_steps["classifier"]
+print("Classes:", svm.classes_)
+print("Support vectors per class:", svm.n_support_)
 
 for i in range(len(X)):
     sample = X[i].reshape(1, -1)
+    scores = clf.decision_function(sample)[0]   # 5 scores, one per class
+    pred = clf.predict(sample)[0]
+    print(f"\nSample {i} (true label: {y[i]})")
+    print(f"  Scores: { {f'n{j}':str(round(s, 3)) for j, s in enumerate(scores)} }")
+    print(f"  Predicted: node {pred}")
 
-    print(f"\nSample {i}")
-
-    for j, estimator in enumerate(clf.named_steps["classifier"].estimators_):
-        score = estimator.decision_function(sample)[0]
-        pred = estimator.predict(sample)[0]
-
-        print(f"  Node {j}: score={score:.4f}, pred={pred}")
-
-def detect_multitouch(profile, threshold=0.8):
+def detect_touch(profile):
     features = extract_features(profile).reshape(1, -1)
-    probabilities = np.array([
-        estimator.decision_function(features)[0]
-        for estimator in clf.named_steps["classifier"].estimators_
-    ])
-    return probabilities
+    scores = clf.decision_function(features)[0]   # raw SVM margins per class
+    predicted_class = clf.predict(features)[0]
+    return {
+        "predicted_node": int(predicted_class),
+        "scores": {f"node_{j}": round(float(s), 4) for j, s in enumerate(scores)}
+    }
 
-idx = np.random.choice(len(X_raw), size=1, replace=False)
-print(f"Testing with touch points: {idx}")
-incoming_vector = X_raw[idx[0]]
-result = detect_multitouch(incoming_vector, threshold=0.1)
-print(f"Detected touch points: {result}")
+idx = np.random.choice(len(X_raw))
+print(f"\nTesting sample index: {idx} (true label: {y[idx]})")
+result = detect_touch(X_raw[idx])
+print(f"Predicted node: {result['predicted_node']}")
+print(f"Scores: {result['scores']}")
