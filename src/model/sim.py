@@ -48,15 +48,18 @@ def get_circuit(touch_nodes, r_ladder):
 
     circuit.VCVS('amp', 'vamp', circuit.gnd, 'vhpf', circuit.gnd, 2)
 
+    #circuit.R(1, 'vamp', 'n1', 50@u_kOhm)
     circuit.R(1, 'vamp', 'n1', 440@u_kOhm)
+    #circuit.L("inductor", 'n1', 'd-pad0', 100@u_mH)
     circuit.L("inductor", 'n1', 'd-pad0', 100@u_mH)
     circuit.R("d-padR0", 'd-pad0', 'd-pad1', r_ladder[0])
     circuit.R("d-padR1", 'd-pad1', 'd-pad2', r_ladder[1])
     circuit.R("d-padR2", 'd-pad2', 'd-pad3', r_ladder[2])
     circuit.R("d-padR3", 'd-pad3', 'd-pad4', r_ladder[3])
-    circuit.R("r_pad4_gnd", 'd-pad4', circuit.gnd, 100@u_MOhm)
+    circuit.R("r_pad4_gnd", 'd-pad4', circuit.gnd, 135@u_kOhm)
     for touch_node in touch_nodes:
-        circuit.C(f"d-padC{touch_node}", f'd-pad{touch_node}', circuit.gnd, 100@u_pF)
+        circuit.C(f"d-padC{touch_node}", f'd-pad{touch_node}', f'finger{touch_node}', 100@u_pF)
+        circuit.R(f"d-padRG{touch_node}", f'finger{touch_node}', circuit.gnd, 1.5@u_kOhm)
 
     circuit.VCVS('buffer', 'vbuf', circuit.gnd, 'n1', circuit.gnd, 1)
 
@@ -121,26 +124,26 @@ def powerset(iterable):
 if __name__ == '__main__':
     nodes = 4
     test_cases = list(powerset(range(1, nodes + 1)))
-    #test_cases = [(), (1,), (2,), (3,), (4,)]
-    test_cases = [(1,), (2,), (1,2)]
-    freq_step = 17.5 * 10
-    frequencies = np.arange(1, 3500, freq_step)
+    test_cases = [(1,), (2,), (3,), (1,2), (1,3), (1,4)]
+    freq_step = 17.5 / 5
+    frequencies = np.arange(1, 3500 / 8, freq_step)
     data = np.zeros((len(test_cases), len(frequencies)))
 
     for i, n in enumerate(test_cases):
         for j, f in enumerate(frequencies):
-            circuit = get_circuit(n, [100@u_kOhm, 220@u_kOhm, 470@u_kOhm, 1000@u_kOhm])
+            #circuit = get_circuit(n, [50@u_kOhm, 50@u_kOhm, 250@u_kOhm, 450@u_kOhm])
+            circuit = get_circuit(n, [360@u_kOhm, 50@u_kOhm, 400@u_kOhm, 200@u_kOhm])
 
             simulator = circuit.simulator(temperature=25, nominal_temperature=25)
 
-            analysis = simulator.transient(
+            analysis = simulator.ac(
                 step_time=10@u_us,
-                end_time=5@u_ms
+                end_time=15@u_ms
             )
 
             #plot_all(analysis, f, n)
             venv = np.array(analysis['venv'])
-            data[i, j] = np.mean(venv[-5:])
+            data[i, j] = np.mean(venv[-10:])
 
             draw_progress(i, j + 1, len(frequencies), f)
 

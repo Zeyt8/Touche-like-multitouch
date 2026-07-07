@@ -1,9 +1,11 @@
 import numpy as np
 from sklearn.svm import SVC
-from sklearn.multioutput import MultiOutputClassifier
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from itertools import combinations, chain
 
 X_raw = np.loadtxt('data.txt', delimiter=' ')[:5]
+X_multitouch = np.loadtxt('data.txt', delimiter=' ')[5:]
 y = np.array([0, 1, 2, 3, 4])
 
 def extract_features(profile):
@@ -26,41 +28,42 @@ def extract_features(profile):
 
 X = np.array([extract_features(row) for row in X_raw])
 
-clf = Pipeline([
-    ("classifier", SVC(
+clf = SVC(
         kernel='poly',
         C=2.0,
         coef0=1.0,
         gamma='scale',
-        decision_function_shape='ovr',  # one score per class
-    ))
-])
+        decision_function_shape='ovr',
+    )
 
 clf.fit(X, y)
 
-svm = clf.named_steps["classifier"]
-print("Classes:", svm.classes_)
-print("Support vectors per class:", svm.n_support_)
+def detect_touch(profile, max_nodes=4):
+    features = extract_features(profile)
 
-for i in range(len(X)):
-    sample = X[i].reshape(1, -1)
-    scores = clf.decision_function(sample)[0]   # 5 scores, one per class
-    pred = clf.predict(sample)[0]
-    print(f"\nSample {i} (true label: {y[i]})")
-    print(f"  Scores: { {f'n{j}':str(round(s, 3)) for j, s in enumerate(scores)} }")
-    print(f"  Predicted: node {pred}")
+    scores = clf.decision_function(features.reshape(1, -1))[0]
+    print(f"  Background score: {round(scores[0], 3)}")
+    node_scores = {node: scores[node] for node in range(1, max_nodes + 1)}
+    print(f"  Raw SVM scores: { {f'n_{k}': str(round(v, 3)) for k, v in node_scores.items()} }")
 
-def detect_touch(profile):
-    features = extract_features(profile).reshape(1, -1)
-    scores = clf.decision_function(features)[0]   # raw SVM margins per class
-    predicted_class = clf.predict(features)[0]
-    return {
-        "predicted_node": int(predicted_class),
-        "scores": {f"node_{j}": round(float(s), 4) for j, s in enumerate(scores)}
-    }
+    candidates = [node for node, score in node_scores.items() if score > 0]
 
-idx = np.random.choice(len(X_raw))
-print(f"\nTesting sample index: {idx} (true label: {y[idx]})")
-result = detect_touch(X_raw[idx])
-print(f"Predicted node: {result['predicted_node']}")
-print(f"Scores: {result['scores']}")
+    return candidates
+
+print("=== Single-touch verification ===")
+for i in range(5):
+    print(f"\nSample {i}:")
+    result = detect_touch(X_raw[i])
+    print(f"  Detected nodes: {result}")
+
+def powerset(iterable):
+    items = list(iterable)
+    return chain.from_iterable(combinations(items, r) for r in range(len(items)+1))
+
+test_cases = list(powerset(range(1, 5)))[5:]
+
+print("=== Multi-touch verification ===")
+for i in range(len(X_multitouch)):
+    print(f"\nSample {[x for x in test_cases[i]]}:")
+    result = detect_touch(X_multitouch[i])
+    print(f"  Detected nodes: {result}")
