@@ -4,9 +4,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from itertools import combinations, chain
 
-X_raw = np.loadtxt('data.txt', delimiter=' ')[:5]
-X_multitouch = np.loadtxt('data.txt', delimiter=' ')[5:]
-y = np.array([0, 1, 2, 3, 4])
+def powerset(iterable):
+    items = list(iterable)
+    return chain.from_iterable(combinations(items, r) for r in range(len(items)+1))
+
+test_cases = list(powerset(range(1, 5)))
+X_all = np.loadtxt('data.txt', delimiter=' ')
 
 def extract_features(profile):
     profile = np.array(profile)
@@ -26,44 +29,40 @@ def extract_features(profile):
 
     return np.concatenate([profile] + derivative_features + [minima])
 
-X = np.array([extract_features(row) for row in X_raw])
+X = np.array([extract_features(row) for row in X_all])
 
-clf = SVC(
-        kernel='poly',
-        C=2.0,
-        coef0=1.0,
-        gamma='scale',
-        decision_function_shape='ovr',
-    )
+y = np.zeros((len(test_cases), 4))
+for i, combo in enumerate(test_cases):
+    for node in combo:
+        y[i, node - 1] = 1
 
-clf.fit(X, y)
+node_classifiers = {}
+for node in range(1, 5):
+    pipe = Pipeline([
+        ('scaler', StandardScaler()),
+        ('svm', SVC(kernel='rbf', C=2.0, gamma='scale')),
+    ])
+    pipe.fit(X, y[:, node - 1])
+    node_classifiers[node] = pipe
 
 def detect_touch(profile, max_nodes=4):
-    features = extract_features(profile)
+    features = extract_features(profile).reshape(1, -1)
 
-    scores = clf.decision_function(features.reshape(1, -1))[0]
-    print(f"  Background score: {round(scores[0], 3)}")
-    node_scores = {node: scores[node] for node in range(1, max_nodes + 1)}
+    node_scores = {}
+    for node in range(1, max_nodes + 1):
+        score = node_classifiers[node].decision_function(features)[0]
+        node_scores[node] = score
+ 
     print(f"  Raw SVM scores: { {f'n_{k}': str(round(v, 3)) for k, v in node_scores.items()} }")
-
+ 
     candidates = [node for node, score in node_scores.items() if score > 0]
-
     return candidates
 
-print("=== Single-touch verification ===")
-for i in range(5):
-    print(f"\nSample {i}:")
-    result = detect_touch(X_raw[i])
-    print(f"  Detected nodes: {result}")
+print("=== Verification across all combinations ===")
+for i, combo in enumerate(test_cases):
+    label = combo if combo else '(-)'
+    print(f"\nSample {label}:")
+    result = detect_touch(X_all[i])
+    match = "OK" if set(result) == set(combo) else "FAILED"
+    print(f"  Detected nodes: {result}  [{match}]")
 
-def powerset(iterable):
-    items = list(iterable)
-    return chain.from_iterable(combinations(items, r) for r in range(len(items)+1))
-
-test_cases = list(powerset(range(1, 5)))[5:]
-
-print("=== Multi-touch verification ===")
-for i in range(len(X_multitouch)):
-    print(f"\nSample {[x for x in test_cases[i]]}:")
-    result = detect_touch(X_multitouch[i])
-    print(f"  Detected nodes: {result}")

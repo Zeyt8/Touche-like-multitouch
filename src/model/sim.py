@@ -124,12 +124,12 @@ if __name__ == '__main__':
     test_cases = list(powerset(range(1, nodes + 1)))
     #test_cases = [(1,), (2,), (3,), (4,), (1,2), (1,3), (1,4), (2,3), (2,4)]
     freq_step = 17.5 / 10
-    frequencies = np.arange(1, 3500 / 10, freq_step)
+    frequencies = np.arange(1, 3500 / 8, freq_step)
     data = np.zeros((len(test_cases), len(frequencies)))
 
     for i, n in enumerate(test_cases):
         for j, f in enumerate(frequencies):
-            circuit = get_circuit(n, [8@u_kOhm, 15@u_kOhm, 30@u_kOhm, 60@u_kOhm])
+            circuit = get_circuit(n, [10@u_kOhm, 15@u_kOhm, 30@u_kOhm, 60@u_kOhm])
 
             simulator = circuit.simulator(temperature=25, nominal_temperature=25)
 
