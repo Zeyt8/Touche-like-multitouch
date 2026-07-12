@@ -9,7 +9,8 @@ def powerset(iterable):
     return chain.from_iterable(combinations(items, r) for r in range(len(items)+1))
 
 test_cases = list(powerset(range(1, 5)))
-X_all = np.loadtxt('data.txt', delimiter=' ')
+X_train = np.loadtxt('data_train.txt', delimiter=' ')
+X_test = np.loadtxt('data_test.txt', delimiter=' ')
 
 def extract_features(profile):
     profile = np.array(profile)
@@ -29,7 +30,7 @@ def extract_features(profile):
 
     return np.concatenate([profile] + derivative_features + [minima])
 
-X = np.array([extract_features(row) for row in X_all])
+X_feat = np.array([extract_features(row) for row in X_train])
 
 y = np.zeros((len(test_cases), 4))
 for i, combo in enumerate(test_cases):
@@ -42,7 +43,7 @@ for node in range(1, 5):
         ('scaler', StandardScaler()),
         ('svm', SVC(kernel='rbf', C=2.0, gamma='scale')),
     ])
-    pipe.fit(X, y[:, node - 1])
+    pipe.fit(X_feat, y[:, node - 1])
     node_classifiers[node] = pipe
 
 def detect_touch(profile, max_nodes=4):
@@ -62,7 +63,7 @@ print("=== Verification across all combinations ===")
 for i, combo in enumerate(test_cases):
     label = combo if combo else '(-)'
     print(f"\nSample {label}:")
-    result = detect_touch(X_all[i])
+    result = detect_touch(X_test[i])
     match = "OK" if set(result) == set(combo) else "FAILED"
     print(f"  Detected nodes: {result}  [{match}]")
 
