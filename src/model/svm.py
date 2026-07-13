@@ -12,8 +12,12 @@ test_cases = list(powerset(range(1, 5)))
 X_train = np.loadtxt('data_train.txt', delimiter=' ')
 X_test = np.loadtxt('data_test.txt', delimiter=' ')
 
+def smooth(profile, window=5):
+    kernel = np.ones(window) / window
+    return np.convolve(profile, kernel, mode='same')
+
 def extract_features(profile):
-    profile = np.array(profile)
+    profile = smooth(np.array(profile))
     derivative_kernel = np.array([-1, 1])
     derivative_features = []
 
@@ -41,7 +45,7 @@ node_classifiers = {}
 for node in range(1, 5):
     pipe = Pipeline([
         ('scaler', StandardScaler()),
-        ('svm', SVC(kernel='rbf', C=2.0, gamma='scale')),
+        ('svm', SVC(kernel='rbf', C=3, gamma=0.01)),
     ])
     pipe.fit(X_feat, y[:, node - 1])
     node_classifiers[node] = pipe
