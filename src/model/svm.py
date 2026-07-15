@@ -3,6 +3,7 @@ from scipy.signal import savgol_filter
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from itertools import combinations, chain
 
 def powerset(iterable):
@@ -47,7 +48,7 @@ def augment_with_synthetic_noise(X_clean, noise_std, n_repeats=15, seed=0):
     return np.array(X_aug), np.array(label_idx)
 
 X_train_aug, train_label_idx = augment_with_synthetic_noise(
-    X_train_clean, noise_std=0.05, n_repeats=15
+    X_train_clean, noise_std=0.02, n_repeats=15
 )
 
 X_feat = np.array([extract_features(row) for row in X_train_aug])
@@ -61,6 +62,7 @@ node_classifiers = {}
 for node in range(1, 5):
     pipe = Pipeline([
         ('scaler', StandardScaler()),
+        #('pca', PCA(n_components=0.9)),
         ('svm', SVC(kernel='rbf', C=2, gamma="scale")),
     ])
     pipe.fit(X_feat, y[:, node - 1])

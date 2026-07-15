@@ -185,7 +185,7 @@ if __name__ == '__main__':
     #best_r_ladder = [10e3, 15e3, 30e3, 60e3]
     frequencies = np.arange(1, 150, 2)
  
-    data = sweep_all_combos(test_cases, frequencies, best_r_ladder, True, noise_std=0.0, cap_dev=0@u_pF)
+    data = sweep_all_combos(test_cases, frequencies, best_r_ladder, True, noise_std=0.01, cap_dev=0@u_pF)
  
     np.savetxt('data.txt', data, fmt='%.6f')
     np.savetxt('best_r_ladder.txt', best_r_ladder, fmt='%.1f')
