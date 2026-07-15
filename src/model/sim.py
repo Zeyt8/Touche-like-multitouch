@@ -96,7 +96,7 @@ def simulate_point(f, touch_nodes, r_ladder, noise_std=0, cap_dev=0@u_pF,
     simulator = circuit.simulator(temperature=25, nominal_temperature=25)
     analysis = simulator.transient(step_time=step_time, end_time=end_time)
     venv = np.array(analysis['venv'])
-    return np.mean(venv[-10:])
+    return np.mean(venv[-50:])
 
 
 def sweep_all_combos(test_cases, frequencies, r_ladder, debug, **sim_kwargs):
@@ -174,18 +174,18 @@ if __name__ == '__main__':
     nodes = 4
     test_cases = list(powerset(range(1, nodes + 1)))
 
-    opt_frequencies = np.linspace(1, 250, 50)
+    opt_frequencies = np.arange(1, 100, 4)
 
-    #best_r_ladder = optimize_ladder(test_cases, opt_frequencies,
-    #                                 bounds_ohm=(1e3, 200e3),
-    #                                 maxiter=20, popsize=8,
-    #                                 seed_values=[10e3, 15e3, 30e3, 60e3])
+    best_r_ladder = optimize_ladder(test_cases, opt_frequencies,
+                                     bounds_ohm=(1e3, 100e3),
+                                     maxiter=20, popsize=8,
+                                     seed_values=[10e3, 15e3, 30e3, 60e3])
 
-    best_r_ladder = [4.558e3, 5.264e3, 15.762e3, 48.299e3]
+    #best_r_ladder = [1.391e3, 6.3237e3, 16.3721e3, 35.1491e3]
     #best_r_ladder = [10e3, 15e3, 30e3, 60e3]
-    frequencies = np.arange(1, 350, 2)
+    frequencies = np.arange(1, 150, 2)
  
-    data = sweep_all_combos(test_cases, frequencies, best_r_ladder, True, noise_std=0.02, cap_dev=0@u_pF)
+    data = sweep_all_combos(test_cases, frequencies, best_r_ladder, True, noise_std=0.0, cap_dev=0@u_pF)
  
     np.savetxt('data.txt', data, fmt='%.6f')
     np.savetxt('best_r_ladder.txt', best_r_ladder, fmt='%.1f')

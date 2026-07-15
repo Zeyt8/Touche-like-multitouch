@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.signal import savgol_filter
 from sklearn.svm import SVC
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -9,12 +10,12 @@ def powerset(iterable):
     return chain.from_iterable(combinations(items, r) for r in range(len(items)+1))
 
 test_cases = list(powerset(range(1, 5)))
-X_train = np.loadtxt('data_train.txt', delimiter=' ')
+X_train_clean = np.loadtxt('data_train.txt', delimiter=' ')
 X_test = np.loadtxt('data_test.txt', delimiter=' ')
 
-def smooth(profile, window=5):
-    kernel = np.ones(window) / window
-    return np.convolve(profile, kernel, mode='same')
+def smooth(profile, window=9, polyorder=2):
+    window = window if window % 2 == 1 else window + 1
+    return savgol_filter(profile, window, polyorder)
 
 def extract_features(profile):
     profile = smooth(np.array(profile))
@@ -34,18 +35,33 @@ def extract_features(profile):
 
     return np.concatenate([profile] + derivative_features + [minima])
 
-X_feat = np.array([extract_features(row) for row in X_train])
+def augment_with_synthetic_noise(X_clean, noise_std, n_repeats=15, seed=0):
+    rng = np.random.default_rng(seed)
+    X_aug = []
+    label_idx = []
+    for i, row in enumerate(X_clean):
+        for _ in range(n_repeats):
+            noisy = row + rng.normal(0, noise_std, size=row.shape)
+            X_aug.append(noisy)
+            label_idx.append(i)
+    return np.array(X_aug), np.array(label_idx)
 
-y = np.zeros((len(test_cases), 4))
-for i, combo in enumerate(test_cases):
-    for node in combo:
+X_train_aug, train_label_idx = augment_with_synthetic_noise(
+    X_train_clean, noise_std=0.05, n_repeats=15
+)
+
+X_feat = np.array([extract_features(row) for row in X_train_aug])
+
+y = np.zeros((len(X_train_aug), 4))
+for i, idx in enumerate(train_label_idx):
+    for node in test_cases[idx]:
         y[i, node - 1] = 1
 
 node_classifiers = {}
 for node in range(1, 5):
     pipe = Pipeline([
         ('scaler', StandardScaler()),
-        ('svm', SVC(kernel='rbf', C=3, gamma=0.01)),
+        ('svm', SVC(kernel='rbf', C=2, gamma="scale")),
     ])
     pipe.fit(X_feat, y[:, node - 1])
     node_classifiers[node] = pipe
